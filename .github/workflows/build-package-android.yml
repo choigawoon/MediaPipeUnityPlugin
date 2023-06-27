@@ -1,0 +1,21 @@
+name: Build a Package for android
+on:
+  workflow_dispatch:
+    inputs:
+      bazelBuildArgs:
+        type: string
+        description: A value for `--bazel_build_opts`
+      androidBuildArgs:
+        type: string
+        description: Build options for Android Build
+  schedule:
+    - cron: 0 12 * * 0,3
+jobs:
+  package:
+    uses: ./.github/workflows/package-android.yml
+    with:
+      ref: ${{ github.event.ref }}
+      packageName: package-android
+      bazelBuildArgs: ${{ inputs.bazelBuildArgs || '--experimental_scale_timeouts=10.0 --http_timeout_scaling=10.0' }}
+      androidBuildArgs: ${{ inputs.androidBuildArgs || '--android arm64 --android_ndk_api_level 21 --linkopt=-s -vv' }}
+    secrets: inherit

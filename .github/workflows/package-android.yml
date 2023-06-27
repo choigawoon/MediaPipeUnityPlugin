@@ -1,0 +1,74 @@
+name: Package-android
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+      packageName:
+        type: string
+        default: package
+      bazelBuildArgs:
+        type: string
+        default: '--experimental_scale_timeouts=10.0 --http_timeout_scaling=10.0'
+      androidBuildArgs:
+        type: string
+        default: '--android fat --android_ndk_api_level 21'
+
+jobs:
+  print-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print inputs for debug
+        run: |
+          echo 'inputs.ref=${{ inputs.ref }}'
+          echo 'inputs.bazelBuildArgs=${{ inputs.bazelBuildArgs }}'
+          echo 'inputs.androidBuildArgs=${{ inputs.androidBuildArgs }}'
+
+  android-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Build a Docker image
+        run: |
+          docker build --no-cache --build-arg UID=$(id -u) -t mediapipe_unity:latest . -f docker/linux/x86_64/Dockerfile
+
+      - name: Remove unused files to free up space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android
+
+      - name: Free disk space
+        run: |
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          sudo apt clean
+          docker rmi $(docker image ls -aq)
+          df -h
+
+      - name: Build
+        run: |
+          docker run --rm \
+            --mount type=bind,src=$PWD/Packages,dst=/home/mediapipe/Packages \
+            --mount type=bind,src=$PWD/Assets,dst=/home/mediapipe/Assets \
+            mediapipe_unity:latest \
+            python build.py build --bazel_build_opts="${{ inputs.bazelBuildArgs }}" ${{ inputs.androidBuildArgs }} -vv
+
+      - name: Upload mediapipe_android.aar
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.packageName }}-mediapipe_android.aar
+          path: Packages/com.github.homuler.mediapipe/Runtime/Plugins/Android/mediapipe_android.aar
+
+  clean:
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs:
+      - package
+    steps:
+      - uses: geekyeggo/delete-artifact@v2
+        with:
+          name: ${{ inputs.packageName }}-mediapipe_android.aar
+          failOnError: false
