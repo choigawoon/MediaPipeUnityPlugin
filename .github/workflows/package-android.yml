@@ -61,14 +61,3 @@ jobs:
         with:
           name: ${{ inputs.packageName }}-mediapipe_android.aar
           path: Packages/com.github.homuler.mediapipe/Runtime/Plugins/Android/mediapipe_android.aar
-
-  clean:
-    runs-on: ubuntu-latest
-    if: ${{ always() }}
-    needs:
-      - package
-    steps:
-      - uses: geekyeggo/delete-artifact@v2
-        with:
-          name: ${{ inputs.packageName }}-mediapipe_android.aar
-          failOnError: false
